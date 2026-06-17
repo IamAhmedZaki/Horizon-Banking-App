@@ -21,6 +21,7 @@ model User {
   lastName            String
   address1            String?
   city                String?
+  state                String?
   postalCode          String?
   dateOfBirth         String?
   ssn                 String?

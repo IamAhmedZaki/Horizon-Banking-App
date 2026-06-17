@@ -1,43 +1,34 @@
-"use server";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-import { Client, Account, Databases, Users } from "node-appwrite";
-import { cookies } from "next/headers";
+export const apiClient = {
+  async post(endpoint: string, body: object, token?: string) {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: JSON.stringify(body),
+    });
 
-export async function createSessionClient() {
-  const client = new Client()
-    .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-    .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!);
-
-  const session = cookies().get("appwrite-session");
-
-  if (!session || !session.value) {
-    throw new Error("No session");
-  }
-
-  client.setSession(session.value);
-
-  return {
-    get account() {
-      return new Account(client);
-    },
-  };
-}
-
-export async function createAdminClient() {
-  const client = new Client()
-    .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-    .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!)
-    .setKey(process.env.NEXT_APPWRITE_KEY!);
-
-  return {
-    get account() {
-      return new Account(client);
-    },
-    get database() {
-      return new Databases(client);
-    },
-    get user() {
-      return new Users(client);
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.message || 'Request failed');
     }
-  };
-}
+
+    return res.json();
+  },
+
+  async get(endpoint: string, token?: string) {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!res.ok) return null;
+
+    return res.json();
+  },
+};

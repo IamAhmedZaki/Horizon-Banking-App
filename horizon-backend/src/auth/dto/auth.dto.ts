@@ -4,6 +4,7 @@ export interface SignUpDto {
   firstName: string;
   lastName: string;
   address1?: string;
+  state?: string;
   city?: string;
   postalCode?: string;
   dateOfBirth?: string;

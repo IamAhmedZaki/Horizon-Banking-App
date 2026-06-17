@@ -1,71 +1,68 @@
 'use server';
 
-import { ID } from "node-appwrite";
-import { createAdminClient, createSessionClient } from "../appwrite";
 import { cookies } from "next/headers";
-import { parseStringify } from "../utils";
+import { apiClient } from "../appwrite";
+
+export const signUp = async (userData: SignUpParams) => {
+  try {
+    const response = await apiClient.post('/auth/sign-up', userData);
+
+    // Store the JWT token in a cookie — same concept as the old appwrite-session cookie
+    // httpOnly means JavaScript can't access it, protecting against XSS attacks
+    cookies().set('horizon-token', response.token, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7, // 7 days matching our JWT expiry
+    });
+
+    return response.user;
+  } catch (error) {
+    console.error('SignUp error:', error);
+  }
+}
 
 export const signIn = async ({ email, password }: signInProps) => {
   try {
-    const { account } = await createAdminClient();
+    const response = await apiClient.post('/auth/sign-in', { email, password });
 
-    const response = await account.createEmailPasswordSession(email, password);
-
-    return parseStringify(response);
-  } catch (error) {
-    console.error('Error', error);
-  }
-}
-
-export const signUp = async (userData: SignUpParams) => {
-  const { email, password, firstName, lastName } = userData;
-  
-  try {
-    const { account } = await createAdminClient();
-
-    const newUserAccount = await account.create(
-      ID.unique(), 
-      email, 
-      password, 
-      `${firstName} ${lastName}`
-    );
-
-    const session = await account.createEmailPasswordSession(email, password);
-
-    cookies().set("appwrite-session", session.secret, {
-      path: "/",
+    // Same as above — store token in httpOnly cookie
+    cookies().set('horizon-token', response.token, {
+      path: '/',
       httpOnly: true,
-      sameSite: "strict",
-      secure: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7,
     });
 
-    return parseStringify(newUserAccount);
+    return response.user;
   } catch (error) {
-    console.error('Error', error);
+    console.error('SignIn error:', error);
   }
 }
 
-export async function getLoggedInUser() {
+export const getLoggedInUser = async () => {
   try {
-    const { account } = await createSessionClient();
+    // Read the token from the cookie and send it to the backend
+    const token = cookies().get('horizon-token')?.value;
+    if (!token) return null;
 
-    const user = await account.get();
-
-    return parseStringify(user);
+    const user = await apiClient.get('/auth/me', token);
+    return user;
   } catch (error) {
-    console.log(error)
+    console.error('GetLoggedInUser error:', error);
     return null;
   }
 }
 
 export const logoutAccount = async () => {
   try {
-    const { account } = await createSessionClient();
-
-    cookies().delete('appwrite-session');
-
-    await account.deleteSession('current');
+    // JWT is stateless so we just delete the cookie — no backend call needed
+    cookies().delete('horizon-token');
+    return true;
   } catch (error) {
+    console.error('Logout error:', error);
     return null;
   }
 }
